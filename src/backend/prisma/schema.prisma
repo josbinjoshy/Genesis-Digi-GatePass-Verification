@@ -1,0 +1,137 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================
+// Enums
+// ==============================
+
+enum Role {
+  STUDENT
+  WARDEN
+  GUARD
+  ADMIN
+}
+
+enum GatePassStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  COMPLETED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  GATEPASS_REQUESTED
+  GATEPASS_APPROVED
+  GATEPASS_REJECTED
+  QR_GENERATED
+  QR_SCANNED_EXIT
+  QR_SCANNED_ENTRY
+  QR_EXPIRED
+}
+
+// ==============================
+// Models
+// ==============================
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  gatePasses    GatePass[]     @relation("StudentGatePasses")
+  approvedPasses GatePass[]    @relation("WardenApprovals")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model GatePass {
+  id          String         @id @default(uuid())
+  studentId   String
+  destination String
+  reason      String
+  leaveTime   DateTime
+  returnTime  DateTime
+  status      GatePassStatus @default(PENDING)
+
+  wardenId    String?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  student User      @relation("StudentGatePasses", fields: [studentId], references: [id])
+  warden  User?     @relation("WardenApprovals", fields: [wardenId], references: [id])
+  qrCode  QRCode?
+
+  @@index([studentId])
+  @@index([status])
+  @@map("gate_passes")
+}
+
+model QRCode {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  gatePassId String   @unique
+  used       Boolean  @default(false)
+  expiresAt  DateTime
+
+  scannedOutAt DateTime?
+  scannedInAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  gatePass GatePass @relation(fields: [gatePassId], references: [id])
+
+  @@index([token])
+  @@map("qr_codes")
+}
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  action    AuditAction
+  userId    String
+  metadata  Json?
+  timestamp DateTime    @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  userId    String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("notifications")
+}
