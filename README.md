@@ -1,1 +1,1 @@
-# Genesis-Digi-GatePass-Verifivation
+# Genesis-Digi-GatePass-Verification
